@@ -1,5 +1,5 @@
-import { useState, useCallback } from "react"
-import { Link } from "react-router-dom"
+import { useState, useCallback, useMemo } from "react"
+import { Link, useLocation } from "react-router-dom"
 import { Navbar } from "@/components/navbar"
 import { VideoPlayer } from "@/components/video-player"
 import { AnalysisCards } from "@/components/analysis-cards"
@@ -9,6 +9,12 @@ import { KeyframePanel } from "@/components/keyframe-panel"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { FileText, Download } from "lucide-react"
+import { loadAnalysisSession } from "@/lib/analysis-session"
+import type {
+  AnalysisNavigationState,
+  AnalysisSessionData,
+  TranscriptItem,
+} from "@/types/video"
 
 // Mock data
 const mockSummary = "This video discusses the transformative impact of artificial intelligence on modern industries. The speakers explore various applications of AI in healthcare, education, and technology sectors, highlighting both opportunities and challenges. Key themes include machine learning advancements, ethical considerations, and future predictions for AI development."
@@ -56,7 +62,55 @@ const mockKeyframes = [
   { id: 8, timestamp: 280, thumbnail: "/keyframe-8.jpg" },
 ]
 
+const EMPTY_TRANSCRIPT_FALLBACK: TranscriptItem[] = [
+  {
+    id: 1,
+    timestamp: 0,
+    speaker: "—",
+    emotion: "neutral",
+    text: "（暂无字幕分段）",
+  },
+]
+
+function resolveAnalysisRouteState(state: unknown): {
+  payload: AnalysisSessionData | null
+  videoSrc: string | null
+} {
+  const nav = state as AnalysisNavigationState | undefined
+  if (nav?.taskId) {
+    const { videoSrc, ...rest } = nav
+    return { payload: rest, videoSrc: videoSrc ?? null }
+  }
+  return { payload: loadAnalysisSession(), videoSrc: null }
+}
+
 export default function AnalysisPage() {
+  const location = useLocation()
+  const { payload, videoSrc } = useMemo(
+    () => resolveAnalysisRouteState(location.state),
+    [location.state, location.key],
+  )
+
+  const hasApi = Boolean(payload)
+
+  const summary = useMemo(() => {
+    if (!hasApi || !payload) return mockSummary
+    const s = payload.summary.trim()
+    return s || "（摘要为空）"
+  }, [hasApi, payload])
+
+  const keywords = useMemo(() => {
+    if (!hasApi || !payload) return mockKeywords
+    if (payload.keywords.length > 0) return payload.keywords
+    return ["（暂无关键词）"]
+  }, [hasApi, payload])
+
+  const transcripts = useMemo(() => {
+    if (!hasApi || !payload) return mockTranscripts
+    if (payload.transcripts.length > 0) return payload.transcripts
+    return EMPTY_TRANSCRIPT_FALLBACK
+  }, [hasApi, payload])
+
   const [currentTime, setCurrentTime] = useState(0)
 
   const handleTimeUpdate = useCallback((time: number) => {
@@ -74,14 +128,18 @@ export default function AnalysisPage() {
       <main className="container mx-auto px-4 py-6">
         {/* Video Player Section */}
         <div className="mb-6">
-          <VideoPlayer currentTime={currentTime} onTimeUpdate={handleTimeUpdate} />
+          <VideoPlayer
+            currentTime={currentTime}
+            onTimeUpdate={handleTimeUpdate}
+            src={videoSrc}
+          />
         </div>
 
         {/* Analysis Cards */}
         <div className="mb-6">
           <AnalysisCards
-            summary={mockSummary}
-            keywords={mockKeywords}
+            summary={summary}
+            keywords={keywords}
             emotions={mockEmotions}
             speakers={mockSpeakers}
           />
@@ -89,13 +147,13 @@ export default function AnalysisPage() {
 
         {/* Search Module */}
         <div className="mb-6">
-          <SearchModule transcripts={mockTranscripts} onSeek={handleSeek} />
+          <SearchModule transcripts={transcripts} onSeek={handleSeek} />
         </div>
 
         {/* Transcript and Keyframes */}
         <div className="mb-6 grid gap-6 lg:grid-cols-2">
           <TranscriptPanel
-            transcripts={mockTranscripts}
+            transcripts={transcripts}
             currentTime={currentTime}
             onSeek={handleSeek}
           />

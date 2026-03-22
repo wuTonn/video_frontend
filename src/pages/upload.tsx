@@ -4,6 +4,11 @@ import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { uploadVideo } from "@/api/video"
+import { saveAnalysisSession } from "@/lib/analysis-session"
+import { parseSummaryKeywords, segmentsToTranscripts } from "@/lib/upload-response"
+import type { AnalysisNavigationState, AnalysisSessionData, TranscriptItem } from "@/types/video"
 import {
   Upload,
   FileVideo,
@@ -16,7 +21,8 @@ import {
   Heart,
   Image,
   Sparkles,
-  FileText
+  FileText,
+  AlertCircle,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -31,12 +37,24 @@ const processingSteps = [
   { id: 8, label: "Generating analysis results", icon: FileText },
 ]
 
+const PLACEHOLDER_KEYWORDS = ["关键词占位", "待后端返回"]
+const EMPTY_TRANSCRIPT: TranscriptItem[] = [
+  {
+    id: 1,
+    timestamp: 0,
+    speaker: "—",
+    emotion: "neutral",
+    text: "（暂无字幕分段）",
+  },
+]
+
 export default function UploadPage() {
   const navigate = useNavigate()
   const [isDragging, setIsDragging] = useState(false)
   const [file, setFile] = useState<File | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
   const [currentStep, setCurrentStep] = useState(0)
+  const [error, setError] = useState<string | null>(null)
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -64,25 +82,79 @@ export default function UploadPage() {
     }
   }, [])
 
-  const startProcessing = useCallback(() => {
+  const startProcessing = useCallback(async () => {
     if (!file) return
 
+    setError(null)
     setIsProcessing(true)
     setCurrentStep(1)
 
-    // Simulate processing steps
-    const interval = setInterval(() => {
-      setCurrentStep((prev) => {
-        if (prev >= processingSteps.length) {
-          clearInterval(interval)
-          setTimeout(() => {
-            navigate("/analysis")
-          }, 500)
-          return prev
-        }
-        return prev + 1
-      })
-    }, 800)
+    const videoSrc = URL.createObjectURL(file)
+
+    try {
+      const data = await uploadVideo(file)
+
+      const { summary: parsedSummary, keywords: parsedKeywords } = parseSummaryKeywords(
+        data.summary_keywords ?? ""
+      )
+
+      let summaryText = parsedSummary.trim()
+      if (!summaryText && data.text?.trim()) {
+        summaryText = data.text.trim().slice(0, 1200)
+      }
+      if (!summaryText) {
+        summaryText = "（暂无摘要）"
+      }
+
+      const keywords =
+        parsedKeywords.length > 0 ? parsedKeywords : PLACEHOLDER_KEYWORDS
+
+      let transcripts = segmentsToTranscripts(data.segments ?? [])
+      if (transcripts.length === 0 && data.text?.trim()) {
+        transcripts = [
+          {
+            id: 1,
+            timestamp: 0,
+            speaker: "Speaker",
+            emotion: "neutral",
+            text: data.text.trim(),
+          },
+        ]
+      }
+      if (transcripts.length === 0) {
+        transcripts = EMPTY_TRANSCRIPT
+      }
+
+      const sessionData: AnalysisSessionData = {
+        taskId: data.task_id?.trim() || "local-task",
+        summary: summaryText,
+        keywords,
+        transcripts,
+      }
+
+      saveAnalysisSession(sessionData)
+
+      const navState: AnalysisNavigationState = {
+        ...sessionData,
+        videoSrc,
+      }
+
+      for (let s = 2; s <= processingSteps.length; s++) {
+        setCurrentStep(s)
+        await new Promise((r) => setTimeout(r, 90))
+      }
+
+      navigate("/analysis", { state: navState })
+    } catch (e) {
+      URL.revokeObjectURL(videoSrc)
+      const message =
+        e != null && typeof e === "object" && "message" in e
+          ? String((e as { message: unknown }).message)
+          : "上传或分析失败，请检查网络与后端服务。"
+      setError(message)
+      setIsProcessing(false)
+      setCurrentStep(0)
+    }
   }, [file, navigate])
 
   return (
@@ -98,6 +170,13 @@ export default function UploadPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
+            {error && (
+              <Alert variant="destructive">
+                <AlertCircle />
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+
             {/* Upload Area */}
             {!isProcessing && (
               <div
