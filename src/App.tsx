@@ -1,11 +1,19 @@
-import UploadPanel from "./components/UploadPanel";
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import HomePage from './pages/home.tsx';
+import AnalysisPage from './pages/analysis.tsx';
+import ReportPage from './pages/report.tsx';
+import UploadPage from './pages/upload.tsx';
 
 function App() {
   return (
-    <div style={{ padding: "40px" }}>
-      <h1>Multimodal Video Analysis System</h1>
-      <UploadPanel />
-    </div>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<HomePage />} />
+        <Route path="/analysis" element={<AnalysisPage />} />
+        <Route path="/report" element={<ReportPage />} />
+        <Route path="/upload" element={<UploadPage />} />
+      </Routes>
+    </BrowserRouter >
   );
 }
 
