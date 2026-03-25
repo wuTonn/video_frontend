@@ -125,11 +125,19 @@ export default function UploadPage() {
         transcripts = EMPTY_TRANSCRIPT
       }
 
+      const keyframes = (data.keyframes ?? []).map((kf, i) => ({
+        id: kf.id ?? i + 1,
+        timestamp: kf.timestamp,
+        thumbnail: kf.thumbnail,
+        visual_tags: kf.visual_tags,
+      }))
+
       const sessionData: AnalysisSessionData = {
         taskId: data.task_id?.trim() || "local-task",
         summary: summaryText,
         keywords,
         transcripts,
+        keyframes,
       }
 
       saveAnalysisSession(sessionData)

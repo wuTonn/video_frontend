@@ -83,7 +83,7 @@ export default function HomePage() {
         </section>
 
         {/* Features Section */}
-        <section className="border-t border-border bg-muted/30 py-20">
+        {/* <section className="border-t border-border bg-muted/30 py-20">
           <div className="container mx-auto px-4">
             <div className="mb-12 text-center">
               <h2 className="mb-4 text-3xl font-bold text-foreground">
@@ -112,10 +112,10 @@ export default function HomePage() {
               ))}
             </div>
           </div>
-        </section>
+        </section> */}
 
         {/* Dashboard Preview Section */}
-        <section className="py-20">
+        {/* <section className="py-20">
           <div className="container mx-auto px-4">
             <div className="mb-12 text-center">
               <h2 className="mb-4 text-3xl font-bold text-foreground">
@@ -171,7 +171,7 @@ export default function HomePage() {
               </div>
             </div>
           </div>
-        </section>
+        </section> */}
       </main>
 
       <Footer />

@@ -13,6 +13,7 @@ import { loadAnalysisSession } from "@/lib/analysis-session"
 import type {
   AnalysisNavigationState,
   AnalysisSessionData,
+  Keyframe,
   TranscriptItem,
 } from "@/types/video"
 
@@ -61,6 +62,8 @@ const mockKeyframes = [
   { id: 7, timestamp: 245, thumbnail: "/keyframe-7.jpg" },
   { id: 8, timestamp: 280, thumbnail: "/keyframe-8.jpg" },
 ]
+
+const EMPTY_KEYFRAME_FALLBACK: Keyframe[] = []
 
 const EMPTY_TRANSCRIPT_FALLBACK: TranscriptItem[] = [
   {
@@ -111,6 +114,12 @@ export default function AnalysisPage() {
     return EMPTY_TRANSCRIPT_FALLBACK
   }, [hasApi, payload])
 
+  const keyframes = useMemo(() => {
+    if (!hasApi || !payload) return mockKeyframes
+    if (payload.keyframes && payload.keyframes.length > 0) return payload.keyframes
+    return EMPTY_KEYFRAME_FALLBACK
+  }, [hasApi, payload])
+
   const [currentTime, setCurrentTime] = useState(0)
 
   const handleTimeUpdate = useCallback((time: number) => {
@@ -158,7 +167,7 @@ export default function AnalysisPage() {
             onSeek={handleSeek}
           />
           <KeyframePanel
-            keyframes={mockKeyframes}
+            keyframes={keyframes}
             currentTime={currentTime}
             onSeek={handleSeek}
           />

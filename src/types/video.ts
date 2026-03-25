@@ -4,11 +4,20 @@ export interface Segment {
   text: string;
 }
 
+export interface Keyframe {
+  id: number
+  timestamp: number
+  thumbnail: string
+  // Backend 会返回用于展示/分析的视觉标签（目前前端未必使用）
+  visual_tags?: string[]
+}
+
 export interface UploadResponse {
   task_id: string;
   text: string;
   segments: Segment[];
   summary_keywords: string;
+  keyframes?: Keyframe[]
 }
 
 /** 字幕行（分析页 / 搜索 / 报告共用） */
@@ -26,6 +35,7 @@ export interface AnalysisSessionData {
   summary: string
   keywords: string[]
   transcripts: TranscriptItem[]
+  keyframes: Keyframe[]
 }
 
 /** 上传完成跳转分析页时携带（含本次上传视频的 blob URL） */

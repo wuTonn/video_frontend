@@ -2,12 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Image } from "lucide-react"
 import { cn } from "@/lib/utils"
-
-interface Keyframe {
-  id: number
-  timestamp: number
-  thumbnail: string
-}
+import type { Keyframe } from "@/types/video"
 
 interface KeyframePanelProps {
   keyframes: Keyframe[]
@@ -22,6 +17,22 @@ function formatTimestamp(seconds: number): string {
 }
 
 export function KeyframePanel({ keyframes, currentTime, onSeek }: KeyframePanelProps) {
+  if (keyframes.length === 0) {
+    return (
+      <Card className="flex h-full flex-col border-border">
+        <CardHeader className="flex-shrink-0 pb-3">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Image className="h-4 w-4 text-primary" />
+            Keyframes
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="flex-1 overflow-hidden p-4">
+          <div className="text-sm text-muted-foreground">暂无关键帧</div>
+        </CardContent>
+      </Card>
+    )
+  }
+
   // Find the closest keyframe
   const closestIndex = keyframes.reduce((prev, curr, index) => {
     const prevDiff = Math.abs(keyframes[prev].timestamp - currentTime)
@@ -54,13 +65,24 @@ export function KeyframePanel({ keyframes, currentTime, onSeek }: KeyframePanelP
                       : "border-border"
                   )}
                 >
-                  <div className="aspect-video bg-muted flex items-center justify-center">
-                    <div className="text-center">
-                      <div className="mx-auto mb-1 h-8 w-8 rounded bg-muted-foreground/20 flex items-center justify-center">
-                        <Image className="h-4 w-4 text-muted-foreground" />
+                  <div className="aspect-video bg-muted overflow-hidden">
+                    {keyframe.thumbnail ? (
+                      <img
+                        src={keyframe.thumbnail}
+                        alt={`Frame ${index + 1}`}
+                        loading="lazy"
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center">
+                        <div className="text-center">
+                          <div className="mx-auto mb-1 h-8 w-8 rounded bg-muted-foreground/20 flex items-center justify-center">
+                            <Image className="h-4 w-4 text-muted-foreground" />
+                          </div>
+                          <span className="text-xs text-muted-foreground">Frame {index + 1}</span>
+                        </div>
                       </div>
-                      <span className="text-xs text-muted-foreground">Frame {index + 1}</span>
-                    </div>
+                    )}
                   </div>
                   <div className="bg-card p-2 text-center">
                     <span className="text-xs font-medium text-muted-foreground">
