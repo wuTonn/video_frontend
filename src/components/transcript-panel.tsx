@@ -57,7 +57,7 @@ export function TranscriptPanel({ transcripts, currentTime, onSeek }: Transcript
         </CardTitle>
       </CardHeader>
       <CardContent className="flex-1 overflow-hidden p-0">
-        <ScrollArea className="h-[400px] px-4 pb-4" ref={scrollRef}>
+        <ScrollArea className="h-[550px] px-4 pb-4" ref={scrollRef}>
           <div className="space-y-2">
             {transcripts.map((item, index) => {
               const isActive = index === currentIndex

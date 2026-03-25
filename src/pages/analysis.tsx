@@ -135,12 +135,45 @@ export default function AnalysisPage() {
       <Navbar />
 
       <main className="container mx-auto px-4 py-6">
-        {/* Video Player Section */}
-        <div className="mb-6">
-          <VideoPlayer
+
+
+        <div className="mb-6 grid gap-6 lg:grid-cols-4">
+          {/* Search Module */}
+          <div className="col-span-3">
+            <SearchModule transcripts={transcripts} onSeek={handleSeek} />
+          </div>
+
+          {/* Report Module */}
+          <div className="col-span-1">
+            <div className="flex gap-4">
+              <Link to="/report">
+                <Button variant="outline" className="gap-2">
+                  <FileText className="h-4 w-4" />
+                  Preview Report
+                </Button>
+              </Link>
+              <Button className="gap-2">
+                <Download className="h-4 w-4" />
+                Generate PDF Report
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {/* Video Player Section AndTranscript*/}
+        <div className="mb-6 grid gap-6 lg:grid-cols-3">
+          <div className="col-span-2">
+            <VideoPlayer
+              currentTime={currentTime}
+              onTimeUpdate={handleTimeUpdate}
+              src={videoSrc}
+            />
+          </div>
+
+          <TranscriptPanel
+            transcripts={transcripts}
             currentTime={currentTime}
-            onTimeUpdate={handleTimeUpdate}
-            src={videoSrc}
+            onSeek={handleSeek}
           />
         </div>
 
@@ -154,18 +187,8 @@ export default function AnalysisPage() {
           />
         </div>
 
-        {/* Search Module */}
+        {/* Keyframes */}
         <div className="mb-6">
-          <SearchModule transcripts={transcripts} onSeek={handleSeek} />
-        </div>
-
-        {/* Transcript and Keyframes */}
-        <div className="mb-6 grid gap-6 lg:grid-cols-2">
-          <TranscriptPanel
-            transcripts={transcripts}
-            currentTime={currentTime}
-            onSeek={handleSeek}
-          />
           <KeyframePanel
             keyframes={keyframes}
             currentTime={currentTime}
@@ -173,30 +196,8 @@ export default function AnalysisPage() {
           />
         </div>
 
-        {/* Report Module */}
-        <Card className="border-border">
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <FileText className="h-4 w-4 text-primary" />
-              Generate Report
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-3">
-              <Link to="/report">
-                <Button variant="outline" className="gap-2">
-                  <FileText className="h-4 w-4" />
-                  Preview Report
-                </Button>
-              </Link>
-              <Button className="gap-2">
-                <Download className="h-4 w-4" />
-                Generate PDF Report
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </main>
-    </div>
+
+      </main >
+    </div >
   )
 }

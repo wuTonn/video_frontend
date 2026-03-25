@@ -49,8 +49,8 @@ export function KeyframePanel({ keyframes, currentTime, onSeek }: KeyframePanelP
         </CardTitle>
       </CardHeader>
       <CardContent className="flex-1 overflow-hidden p-0">
-        <ScrollArea className="h-[400px] px-4 pb-4">
-          <div className="grid grid-cols-2 gap-3">
+        <ScrollArea className="h-[660px] px-4 pb-4">
+          <div className="grid grid-cols-3 gap-3">
             {keyframes.map((keyframe, index) => {
               const isActive = index === closestIndex && Math.abs(keyframe.timestamp - currentTime) < 10
 
