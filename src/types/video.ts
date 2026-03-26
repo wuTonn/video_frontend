@@ -2,7 +2,11 @@ export interface Segment {
   start: number;
   end: number;
   text: string;
+  emotion?: string;
+  speaker?: string;
 }
+
+export type GroupedSegments = Segment[][]
 
 export interface Keyframe {
   id: number
@@ -16,7 +20,9 @@ export interface UploadResponse {
   task_id: string;
   text: string;
   segments: Segment[];
-  summary_keywords: string;
+  grouped_segments?: GroupedSegments;
+  summary: string;
+  keywords: string[]
   keyframes?: Keyframe[]
 }
 

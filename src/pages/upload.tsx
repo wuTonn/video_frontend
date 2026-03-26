@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect, useRef } from "react"
 import { useNavigate } from "react-router-dom"
 import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { uploadVideo } from "@/api/video"
 import { saveAnalysisSession } from "@/lib/analysis-session"
-import { parseSummaryKeywords, segmentsToTranscripts } from "@/lib/upload-response"
+import { segmentsToTranscripts } from "@/lib/upload-response"
 import type { AnalysisNavigationState, AnalysisSessionData, TranscriptItem } from "@/types/video"
 import {
   Upload,
@@ -37,6 +37,9 @@ const processingSteps = [
   { id: 8, label: "Generating analysis results", icon: FileText },
 ]
 
+// 每个步骤的预估耗时（毫秒），用于在等待后端期间推进假进度
+const STEP_DURATIONS = [0, 2000, 8000, 12000, 8000, 6000, 4000, 3000]
+
 const PLACEHOLDER_KEYWORDS = ["关键词占位", "待后端返回"]
 const EMPTY_TRANSCRIPT: TranscriptItem[] = [
   {
@@ -55,6 +58,17 @@ export default function UploadPage() {
   const [isProcessing, setIsProcessing] = useState(false)
   const [currentStep, setCurrentStep] = useState(0)
   const [error, setError] = useState<string | null>(null)
+
+  // FIX 1: 用 ref 追踪 blob URL，确保在组件卸载或错误时释放
+  const videoSrcRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (videoSrcRef.current) {
+        URL.revokeObjectURL(videoSrcRef.current)
+      }
+    }
+  }, [])
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -77,9 +91,7 @@ export default function UploadPage() {
 
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0]
-    if (selectedFile) {
-      setFile(selectedFile)
-    }
+    if (selectedFile) setFile(selectedFile)
   }, [])
 
   const startProcessing = useCallback(async () => {
@@ -89,36 +101,54 @@ export default function UploadPage() {
     setIsProcessing(true)
     setCurrentStep(1)
 
-    const videoSrc = URL.createObjectURL(file)
+    // FIX 1: 释放上一次遗留的 blob URL
+    if (videoSrcRef.current) {
+      URL.revokeObjectURL(videoSrcRef.current)
+    }
+    videoSrcRef.current = URL.createObjectURL(file)
+
+    // FIX 2: 在等待后端期间按预估耗时推进步骤，给用户真实的进度反馈
+    let stepIndex = 2
+    const stepTimer = setInterval(() => {
+      if (stepIndex <= processingSteps.length) {
+        setCurrentStep(stepIndex)
+        stepIndex++
+      } else {
+        clearInterval(stepTimer)
+      }
+      // 用当前步骤的预估耗时作为间隔；简单起见取平均值
+    }, STEP_DURATIONS.reduce((a, b) => a + b, 0) / (processingSteps.length - 1))
 
     try {
       const data = await uploadVideo(file)
 
-      const { summary: parsedSummary, keywords: parsedKeywords } = parseSummaryKeywords(
-        data.summary_keywords ?? ""
-      )
+      // 后端已返回，清除假进度定时器并推进到最后一步
+      clearInterval(stepTimer)
+      setCurrentStep(processingSteps.length)
 
-      let summaryText = parsedSummary.trim()
+      console.log(data.segments)
+
+      let summaryText = data.summary
       if (!summaryText && data.text?.trim()) {
         summaryText = data.text.trim().slice(0, 1200)
       }
-      if (!summaryText) {
-        summaryText = "（暂无摘要）"
-      }
+      if (!summaryText) summaryText = "（暂无摘要）"
 
       const keywords =
-        parsedKeywords.length > 0 ? parsedKeywords : PLACEHOLDER_KEYWORDS
+        Array.isArray(data.keywords) && data.keywords.length > 0
+          ? data.keywords
+          : PLACEHOLDER_KEYWORDS
 
-      let transcripts = segmentsToTranscripts(data.segments ?? [])
+      // FIX 3: grouped_segments 为空数组时也降级到 segments，避免丢失数据
+      const flatSegments =
+        data.grouped_segments && data.grouped_segments.length > 0
+          ? data.grouped_segments.flat()
+          : (data.segments ?? [])
+
+      let transcripts = segmentsToTranscripts(flatSegments)
       if (transcripts.length === 0 && data.text?.trim()) {
         transcripts = [
-          {
-            id: 1,
-            timestamp: 0,
-            speaker: "Speaker",
-            emotion: "neutral",
-            text: data.text.trim(),
-          },
+          { id: 1, timestamp: 0, speaker: "Speaker", emotion: "neutral", text: data.text.trim() },
         ]
       }
       if (transcripts.length === 0) {
@@ -144,17 +174,22 @@ export default function UploadPage() {
 
       const navState: AnalysisNavigationState = {
         ...sessionData,
-        videoSrc,
+        videoSrc: videoSrcRef.current,
       }
 
-      for (let s = 2; s <= processingSteps.length; s++) {
-        setCurrentStep(s)
-        await new Promise((r) => setTimeout(r, 90))
-      }
+      // FIX 1: 导航后将 ref 置空，生命周期转移给分析页
+      videoSrcRef.current = null
 
       navigate("/analysis", { state: navState })
     } catch (e) {
-      URL.revokeObjectURL(videoSrc)
+      clearInterval(stepTimer)
+
+      // FIX 1: 发生错误时立即释放 blob URL
+      if (videoSrcRef.current) {
+        URL.revokeObjectURL(videoSrcRef.current)
+        videoSrcRef.current = null
+      }
+
       const message =
         e != null && typeof e === "object" && "message" in e
           ? String((e as { message: unknown }).message)

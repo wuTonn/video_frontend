@@ -9,15 +9,8 @@ export const uploadVideo = async (file: File): Promise<UploadResponse> => {
   const formData = new FormData();
   formData.append("file", file);
 
-  const response = await api.post<UploadResponse>(
-    "/video/upload",
-    formData,
-    {
-      headers: {
-        "Content-Type": "multipart/form-data",
-      },
-    }
-  );
+  // FIX 4: 不手动设置 Content-Type，让浏览器自动附加正确的 boundary
+  const response = await api.post<UploadResponse>("/video/upload", formData);
 
   return response.data;
 };

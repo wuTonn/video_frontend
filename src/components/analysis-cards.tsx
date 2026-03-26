@@ -26,7 +26,7 @@ export function AnalysisCards({
   speakers,
 }: AnalysisCardsProps) {
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-2">
       {/* Video Summary */}
       <Card className="border-border">
         <CardHeader className="pb-2">

@@ -17,15 +17,16 @@ function formatTimestamp(seconds: number): string {
   return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`
 }
 
-function getEmotionIcon(emotion: string): string {
-  const emotions: Record<string, string> = {
-    happy: "😊",
-    neutral: "😐",
-    sad: "😢",
-    angry: "😠",
-    surprised: "😮",
+function getEmotionLabel(emotion: string | undefined): string {
+  const key = (emotion ?? "").toLowerCase()
+  const labels: Record<string, string> = {
+    happy: "开心",
+    neutral: "中性",
+    sad: "难过",
+    angry: "生气",
+    surprised: "惊讶",
   }
-  return emotions[emotion] || "😐"
+  return labels[key] || (emotion?.trim() ? emotion.trim() : "未知")
 }
 
 export function TranscriptPanel({ transcripts, currentTime, onSeek }: TranscriptPanelProps) {
@@ -81,8 +82,11 @@ export function TranscriptPanel({ transcripts, currentTime, onSeek }: Transcript
                     <span className="text-xs font-medium text-primary">
                       {item.speaker}
                     </span>
-                    <span className="text-sm" title={item.emotion}>
-                      {getEmotionIcon(item.emotion)}
+                    <span
+                      className="rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground"
+                      title={item.emotion}
+                    >
+                      {getEmotionLabel(item.emotion)}
                     </span>
                   </div>
                   <p className={cn(

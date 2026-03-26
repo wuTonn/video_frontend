@@ -7,7 +7,6 @@ import { SearchModule } from "@/components/search-module"
 import { TranscriptPanel } from "@/components/transcript-panel"
 import { KeyframePanel } from "@/components/keyframe-panel"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { FileText, Download } from "lucide-react"
 import { loadAnalysisSession } from "@/lib/analysis-session"
 import type {
@@ -75,6 +74,66 @@ const EMPTY_TRANSCRIPT_FALLBACK: TranscriptItem[] = [
   },
 ]
 
+const EMOTION_COLOR: Record<string, string> = {
+  happy: "oklch(0.7 0.15 160)",
+  neutral: "oklch(0.65 0.05 250)",
+  sad: "oklch(0.55 0.22 255)",
+  surprised: "oklch(0.75 0.18 80)",
+  angry: "oklch(0.62 0.22 25)",
+  fearful: "oklch(0.6 0.12 320)",
+  disgusted: "oklch(0.58 0.17 130)",
+}
+
+function toTitleCase(label: string): string {
+  if (!label) return label
+  return label.slice(0, 1).toUpperCase() + label.slice(1).toLowerCase()
+}
+
+function normalizeEmotion(raw: string | undefined | null): string {
+  const v = String(raw ?? "").trim().toLowerCase()
+  return v || "neutral"
+}
+
+function normalizeSpeaker(raw: string | undefined | null): string {
+  const v = String(raw ?? "").trim()
+  return v || "Unknown"
+}
+
+function toPercentDistribution(
+  counts: Map<string, number>,
+): Array<{ key: string; percent: number }> {
+  const entries = Array.from(counts.entries()).filter(([, c]) => c > 0)
+  const total = entries.reduce((sum, [, c]) => sum + c, 0)
+  if (total <= 0) return []
+
+  const withRounded = entries.map(([key, c]) => ({
+    key,
+    raw: (c / total) * 100,
+    percent: Math.round((c / total) * 100),
+  }))
+
+  // 让总和严格为 100（避免四舍五入误差影响图表观感）
+  const sumRounded = withRounded.reduce((sum, x) => sum + x.percent, 0)
+  const diff = 100 - sumRounded
+  if (diff !== 0) {
+    let bestIdx = 0
+    let bestScore = -Infinity
+    for (let i = 0; i < withRounded.length; i++) {
+      const x = withRounded[i]
+      const score = diff > 0 ? x.raw - x.percent : x.percent - x.raw
+      if (score > bestScore) {
+        bestScore = score
+        bestIdx = i
+      }
+    }
+    withRounded[bestIdx] = { ...withRounded[bestIdx], percent: withRounded[bestIdx].percent + diff }
+  }
+
+  return withRounded
+    .map((x) => ({ key: x.key, percent: x.percent }))
+    .sort((a, b) => b.percent - a.percent)
+}
+
 function resolveAnalysisRouteState(state: unknown): {
   payload: AnalysisSessionData | null
   videoSrc: string | null
@@ -118,6 +177,45 @@ export default function AnalysisPage() {
     if (!hasApi || !payload) return mockKeyframes
     if (payload.keyframes && payload.keyframes.length > 0) return payload.keyframes
     return EMPTY_KEYFRAME_FALLBACK
+  }, [hasApi, payload])
+
+  const emotions = useMemo(() => {
+    if (!hasApi || !payload) return mockEmotions
+    if (!payload.transcripts || payload.transcripts.length === 0) return mockEmotions
+
+    const counts = new Map<string, number>()
+    for (const item of payload.transcripts) {
+      const key = normalizeEmotion(item.emotion)
+      counts.set(key, (counts.get(key) ?? 0) + 1)
+    }
+
+    const distribution = toPercentDistribution(counts)
+    if (distribution.length === 0) return mockEmotions
+
+    return distribution.map(({ key, percent }) => ({
+      name: toTitleCase(key),
+      value: percent,
+      color: EMOTION_COLOR[key] ?? "oklch(0.72 0.06 260)",
+    }))
+  }, [hasApi, payload])
+
+  const speakers = useMemo(() => {
+    if (!hasApi || !payload) return mockSpeakers
+    if (!payload.transcripts || payload.transcripts.length === 0) return mockSpeakers
+
+    const counts = new Map<string, number>()
+    for (const item of payload.transcripts) {
+      const key = normalizeSpeaker(item.speaker)
+      counts.set(key, (counts.get(key) ?? 0) + 1)
+    }
+
+    const distribution = toPercentDistribution(counts)
+    if (distribution.length === 0) return mockSpeakers
+
+    return distribution.map(({ key, percent }) => ({
+      name: key,
+      percentage: percent,
+    }))
   }, [hasApi, payload])
 
   const [currentTime, setCurrentTime] = useState(0)
@@ -182,8 +280,8 @@ export default function AnalysisPage() {
           <AnalysisCards
             summary={summary}
             keywords={keywords}
-            emotions={mockEmotions}
-            speakers={mockSpeakers}
+            emotions={emotions}
+            speakers={speakers}
           />
         </div>
 
