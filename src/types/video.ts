@@ -15,14 +15,39 @@ export interface Keyframe {
   visual_caption?: string
 }
 
+export interface EventItem {
+  window_id: number
+  start: number
+  end: number
+  title: string
+  summary: string
+  event_type: string
+}
+
 export interface UploadResponse {
   task_id: string;
+  video_duration?: number;
   text: string;
   segments: Segment[];
   grouped_segments?: GroupedSegments;
   summary: string;
   keywords: string[]
   keyframes?: Keyframe[]
+  events?: EventItem[]
+}
+
+export interface TaskStatusResponse {
+  task_id: string
+  filename?: string
+  status: "queued" | "processing" | "completed" | "failed"
+  current_step: number
+  total_steps: number
+  message: string
+  progress: number
+  result?: UploadResponse | null
+  error?: string | null
+  created_at?: string
+  updated_at?: string
 }
 
 export interface TranscriptItem {
@@ -39,6 +64,7 @@ export interface AnalysisSessionData {
   keywords: string[]
   transcripts: TranscriptItem[]
   keyframes: Keyframe[]
+  events: EventItem[]
 }
 
 export type AnalysisNavigationState = AnalysisSessionData & {

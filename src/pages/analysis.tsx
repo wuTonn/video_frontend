@@ -6,12 +6,14 @@ import { AnalysisCards } from "@/components/analysis-cards"
 import { SearchModule } from "@/components/search-module"
 import { TranscriptPanel } from "@/components/transcript-panel"
 import { KeyframePanel } from "@/components/keyframe-panel"
+import { EventTimelinePanel } from "@/components/event-timeline-panel"
 import { Button } from "@/components/ui/button"
 import { FileText, Download } from "lucide-react"
 import { loadAnalysisSession } from "@/lib/analysis-session"
 import type {
   AnalysisNavigationState,
   AnalysisSessionData,
+  EventItem,
   Keyframe,
   TranscriptItem,
 } from "@/types/video"
@@ -60,6 +62,33 @@ const mockKeyframes = [
   { id: 6, timestamp: 210, thumbnail: "/keyframe-6.jpg" },
   { id: 7, timestamp: 245, thumbnail: "/keyframe-7.jpg" },
   { id: 8, timestamp: 280, thumbnail: "/keyframe-8.jpg" },
+]
+
+const mockEvents: EventItem[] = [
+  {
+    window_id: 1,
+    start: 0,
+    end: 60,
+    title: "AI topic introduction",
+    summary: "The speakers introduce the topic of artificial intelligence and outline the main themes of the video.",
+    event_type: "introduction",
+  },
+  {
+    window_id: 2,
+    start: 60,
+    end: 150,
+    title: "Industry applications discussion",
+    summary: "The discussion shifts to how AI is applied in healthcare and education, with multiple speakers expanding on examples.",
+    event_type: "discussion",
+  },
+  {
+    window_id: 3,
+    start: 150,
+    end: 280,
+    title: "Ethics and conclusion",
+    summary: "The video closes with ethical concerns, governance issues, and a forward-looking conclusion about AI development.",
+    event_type: "conclusion",
+  },
 ]
 
 const EMPTY_KEYFRAME_FALLBACK: Keyframe[] = []
@@ -179,6 +208,12 @@ export default function AnalysisPage() {
     return EMPTY_KEYFRAME_FALLBACK
   }, [hasApi, payload])
 
+  const events = useMemo(() => {
+    if (!hasApi || !payload) return mockEvents
+    if (payload.events && payload.events.length > 0) return payload.events
+    return []
+  }, [hasApi, payload])
+
   const emotions = useMemo(() => {
     if (!hasApi || !payload) return mockEmotions
     if (!payload.transcripts || payload.transcripts.length === 0) return mockEmotions
@@ -285,6 +320,16 @@ export default function AnalysisPage() {
           />
         </div>
 
+
+
+        <div className="mb-6">
+          <EventTimelinePanel
+            events={events}
+            currentTime={currentTime}
+            onSeek={handleSeek}
+          />
+        </div>
+
         {/* Keyframes */}
         <div className="mb-6">
           <KeyframePanel
@@ -293,8 +338,6 @@ export default function AnalysisPage() {
             onSeek={handleSeek}
           />
         </div>
-
-
       </main >
     </div >
   )

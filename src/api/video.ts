@@ -1,16 +1,19 @@
 import axios from "axios";
-import type { UploadResponse } from "../types/video";
+import type { TaskStatusResponse } from "../types/video";
 
 const api = axios.create({
   baseURL: "http://127.0.0.1:8000",
 });
 
-export const uploadVideo = async (file: File): Promise<UploadResponse> => {
+export const uploadVideo = async (file: File): Promise<TaskStatusResponse> => {
   const formData = new FormData();
   formData.append("file", file);
 
-  // FIX 4: 不手动设置 Content-Type，让浏览器自动附加正确的 boundary
-  const response = await api.post<UploadResponse>("/video/upload", formData);
+  const response = await api.post<TaskStatusResponse>("/video/upload", formData);
+  return response.data;
+};
 
+export const getVideoTask = async (taskId: string): Promise<TaskStatusResponse> => {
+  const response = await api.get<TaskStatusResponse>(`/video/task/${taskId}`);
   return response.data;
 };

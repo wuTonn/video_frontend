@@ -5,24 +5,30 @@ import { Footer } from "@/components/footer"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { uploadVideo } from "@/api/video"
+import { getVideoTask, uploadVideo } from "@/api/video"
 import { saveAnalysisSession } from "@/lib/analysis-session"
 import { segmentsToTranscripts } from "@/lib/upload-response"
-import type { AnalysisNavigationState, AnalysisSessionData, TranscriptItem } from "@/types/video"
+import type {
+  AnalysisNavigationState,
+  AnalysisSessionData,
+  TaskStatusResponse,
+  TranscriptItem,
+  UploadResponse,
+} from "@/types/video"
 import {
-  Upload,
-  FileVideo,
-  Check,
-  Loader2,
-  CloudUpload,
+  AlertCircle,
   AudioLines,
-  MessageSquare,
-  Users,
+  Check,
+  CloudUpload,
+  FileText,
+  FileVideo,
   Heart,
   Image,
+  Loader2,
+  MessageSquare,
   Sparkles,
-  FileText,
-  AlertCircle,
+  Upload,
+  Users,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -37,19 +43,22 @@ const processingSteps = [
   { id: 8, label: "Generating analysis results", icon: FileText },
 ]
 
-// 每个步骤的预估耗时（毫秒），用于在等待后端期间推进假进度
-const STEP_DURATIONS = [0, 2000, 8000, 12000, 8000, 6000, 4000, 3000]
-
-const PLACEHOLDER_KEYWORDS = ["关键词占位", "待后端返回"]
+const PLACEHOLDER_KEYWORDS = ["Pending", "Analysis"]
 const EMPTY_TRANSCRIPT: TranscriptItem[] = [
   {
     id: 1,
     timestamp: 0,
-    speaker: "—",
+    speaker: "Unknown",
     emotion: "neutral",
-    text: "（暂无字幕分段）",
+    text: "(No transcript available)",
   },
 ]
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms)
+  })
+}
 
 export default function UploadPage() {
   const navigate = useNavigate()
@@ -57,13 +66,15 @@ export default function UploadPage() {
   const [file, setFile] = useState<File | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
   const [currentStep, setCurrentStep] = useState(0)
+  const [statusMessage, setStatusMessage] = useState("")
   const [error, setError] = useState<string | null>(null)
 
-  // FIX 1: 用 ref 追踪 blob URL，确保在组件卸载或错误时释放
   const videoSrcRef = useRef<string | null>(null)
+  const isMountedRef = useRef(true)
 
   useEffect(() => {
     return () => {
+      isMountedRef.current = false
       if (videoSrcRef.current) {
         URL.revokeObjectURL(videoSrcRef.current)
       }
@@ -94,97 +105,124 @@ export default function UploadPage() {
     if (selectedFile) setFile(selectedFile)
   }, [])
 
+  const buildSessionData = useCallback((data: UploadResponse): AnalysisSessionData => {
+    let summaryText = data.summary
+    if (!summaryText && data.text?.trim()) {
+      summaryText = data.text.trim().slice(0, 1200)
+    }
+    if (!summaryText) summaryText = "(No summary available)"
+
+    const keywords =
+      Array.isArray(data.keywords) && data.keywords.length > 0
+        ? data.keywords
+        : PLACEHOLDER_KEYWORDS
+
+    const flatSegments =
+      data.grouped_segments && data.grouped_segments.length > 0
+        ? data.grouped_segments.flat()
+        : (data.segments ?? [])
+
+    let transcripts = segmentsToTranscripts(flatSegments)
+    if (transcripts.length === 0 && data.text?.trim()) {
+      transcripts = [
+        { id: 1, timestamp: 0, speaker: "Speaker", emotion: "neutral", text: data.text.trim() },
+      ]
+    }
+    if (transcripts.length === 0) {
+      transcripts = EMPTY_TRANSCRIPT
+    }
+
+    const keyframes = (data.keyframes ?? []).map((kf, i) => ({
+      id: kf.id ?? i + 1,
+      timestamp: kf.timestamp,
+      thumbnail: kf.thumbnail,
+      visual_caption: kf.visual_caption,
+    }))
+
+    const events = (data.events ?? []).map((event, i) => ({
+      window_id: event.window_id ?? i + 1,
+      start: event.start ?? 0,
+      end: event.end ?? event.start ?? 0,
+      title: event.title ?? `Event ${i + 1}`,
+      summary: event.summary ?? "",
+      event_type: event.event_type ?? "other",
+    }))
+
+    return {
+      taskId: data.task_id?.trim() || "local-task",
+      summary: summaryText,
+      keywords,
+      transcripts,
+      keyframes,
+      events,
+    }
+  }, [])
+
+  const handleCompletedTask = useCallback((task: TaskStatusResponse) => {
+    const data = task.result
+    if (!data) {
+      throw new Error("Task finished without analysis result.")
+    }
+
+    const sessionData = buildSessionData(data)
+    saveAnalysisSession(sessionData)
+
+    const navState: AnalysisNavigationState = {
+      ...sessionData,
+      videoSrc: videoSrcRef.current,
+    }
+
+    videoSrcRef.current = null
+    navigate("/analysis", { state: navState })
+  }, [buildSessionData, navigate])
+
+  const pollTaskUntilDone = useCallback(async (taskId: string) => {
+    while (isMountedRef.current) {
+      const task = await getVideoTask(taskId)
+
+      if (!isMountedRef.current) {
+        return
+      }
+
+      setCurrentStep(Math.max(1, task.current_step || 1))
+      setStatusMessage(task.message || "")
+
+      if (task.status === "completed") {
+        handleCompletedTask(task)
+        return
+      }
+
+      if (task.status === "failed") {
+        throw new Error(task.error || task.message || "Analysis failed.")
+      }
+
+      await delay(2000)
+    }
+  }, [handleCompletedTask])
+
   const startProcessing = useCallback(async () => {
     if (!file) return
 
     setError(null)
     setIsProcessing(true)
     setCurrentStep(1)
+    setStatusMessage("Uploading video.")
 
-    // FIX 1: 释放上一次遗留的 blob URL
     if (videoSrcRef.current) {
       URL.revokeObjectURL(videoSrcRef.current)
     }
     videoSrcRef.current = URL.createObjectURL(file)
 
-    // FIX 2: 在等待后端期间按预估耗时推进步骤，给用户真实的进度反馈
-    let stepIndex = 2
-    const stepTimer = setInterval(() => {
-      if (stepIndex <= processingSteps.length) {
-        setCurrentStep(stepIndex)
-        stepIndex++
-      } else {
-        clearInterval(stepTimer)
-      }
-      // 用当前步骤的预估耗时作为间隔；简单起见取平均值
-    }, STEP_DURATIONS.reduce((a, b) => a + b, 0) / (processingSteps.length - 1))
-
     try {
-      const data = await uploadVideo(file)
+      const task = await uploadVideo(file)
 
-      // 后端已返回，清除假进度定时器并推进到最后一步
-      clearInterval(stepTimer)
-      setCurrentStep(processingSteps.length)
+      if (!isMountedRef.current) return
 
-      console.log(data.segments)
+      setCurrentStep(Math.max(1, task.current_step || 1))
+      setStatusMessage(task.message || "Task queued.")
 
-      let summaryText = data.summary
-      if (!summaryText && data.text?.trim()) {
-        summaryText = data.text.trim().slice(0, 1200)
-      }
-      if (!summaryText) summaryText = "（暂无摘要）"
-
-      const keywords =
-        Array.isArray(data.keywords) && data.keywords.length > 0
-          ? data.keywords
-          : PLACEHOLDER_KEYWORDS
-
-      // FIX 3: grouped_segments 为空数组时也降级到 segments，避免丢失数据
-      const flatSegments =
-        data.grouped_segments && data.grouped_segments.length > 0
-          ? data.grouped_segments.flat()
-          : (data.segments ?? [])
-
-      let transcripts = segmentsToTranscripts(flatSegments)
-      if (transcripts.length === 0 && data.text?.trim()) {
-        transcripts = [
-          { id: 1, timestamp: 0, speaker: "Speaker", emotion: "neutral", text: data.text.trim() },
-        ]
-      }
-      if (transcripts.length === 0) {
-        transcripts = EMPTY_TRANSCRIPT
-      }
-
-      const keyframes = (data.keyframes ?? []).map((kf, i) => ({
-        id: kf.id ?? i + 1,
-        timestamp: kf.timestamp,
-        thumbnail: kf.thumbnail,
-        visual_caption: kf.visual_caption,
-      }))
-
-      const sessionData: AnalysisSessionData = {
-        taskId: data.task_id?.trim() || "local-task",
-        summary: summaryText,
-        keywords,
-        transcripts,
-        keyframes,
-      }
-
-      saveAnalysisSession(sessionData)
-
-      const navState: AnalysisNavigationState = {
-        ...sessionData,
-        videoSrc: videoSrcRef.current,
-      }
-
-      // FIX 1: 导航后将 ref 置空，生命周期转移给分析页
-      videoSrcRef.current = null
-
-      navigate("/analysis", { state: navState })
+      await pollTaskUntilDone(task.task_id)
     } catch (e) {
-      clearInterval(stepTimer)
-
-      // FIX 1: 发生错误时立即释放 blob URL
       if (videoSrcRef.current) {
         URL.revokeObjectURL(videoSrcRef.current)
         videoSrcRef.current = null
@@ -193,12 +231,13 @@ export default function UploadPage() {
       const message =
         e != null && typeof e === "object" && "message" in e
           ? String((e as { message: unknown }).message)
-          : "上传或分析失败，请检查网络与后端服务。"
+          : "Upload or analysis failed. Please check the backend service."
       setError(message)
       setIsProcessing(false)
       setCurrentStep(0)
+      setStatusMessage("")
     }
-  }, [file, navigate])
+  }, [file, pollTaskUntilDone])
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
@@ -220,7 +259,6 @@ export default function UploadPage() {
               </Alert>
             )}
 
-            {/* Upload Area */}
             {!isProcessing && (
               <div
                 onDragOver={handleDragOver}
@@ -260,12 +298,8 @@ export default function UploadPage() {
                       <Upload className="h-7 w-7 text-muted-foreground" />
                     </div>
                     <div className="text-center">
-                      <p className="font-medium text-foreground">
-                        Drag and drop your video here
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        or click to browse
-                      </p>
+                      <p className="font-medium text-foreground">Drag and drop your video here</p>
+                      <p className="text-sm text-muted-foreground">or click to browse</p>
                     </div>
                     <p className="text-xs text-muted-foreground">
                       Supported formats: MP4, MOV, AVI, MKV, WebM
@@ -275,7 +309,6 @@ export default function UploadPage() {
               </div>
             )}
 
-            {/* Start Analysis Button */}
             {file && !isProcessing && (
               <Button onClick={startProcessing} className="w-full gap-2" size="lg">
                 <Sparkles className="h-5 w-5" />
@@ -283,12 +316,14 @@ export default function UploadPage() {
               </Button>
             )}
 
-            {/* Processing Progress */}
             {isProcessing && (
               <div className="space-y-4">
                 <div className="flex items-center justify-center gap-3 pb-2">
                   <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                  <span className="font-medium text-foreground">Processing your video...</span>
+                  <div className="text-center">
+                    <div className="font-medium text-foreground">Processing your video...</div>
+                    <div className="text-sm text-muted-foreground">{statusMessage}</div>
+                  </div>
                 </div>
 
                 <div className="space-y-2">
