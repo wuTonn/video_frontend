@@ -159,7 +159,7 @@ export default function UploadPage() {
         id: kf.id ?? i + 1,
         timestamp: kf.timestamp,
         thumbnail: kf.thumbnail,
-        visual_tags: kf.visual_tags,
+        visual_caption: kf.visual_caption,
       }))
 
       const sessionData: AnalysisSessionData = {
