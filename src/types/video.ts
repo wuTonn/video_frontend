@@ -36,6 +36,13 @@ export interface UploadResponse {
   events?: EventItem[]
 }
 
+export interface VideoInfo {
+  filename: string
+  durationSeconds: number
+  durationLabel: string
+  uploadTime: string
+}
+
 export interface TaskStatusResponse {
   task_id: string
   filename?: string
@@ -60,6 +67,7 @@ export interface TranscriptItem {
 
 export interface AnalysisSessionData {
   taskId: string
+  videoInfo: VideoInfo
   summary: string
   keywords: string[]
   transcripts: TranscriptItem[]
@@ -69,4 +77,46 @@ export interface AnalysisSessionData {
 
 export type AnalysisNavigationState = AnalysisSessionData & {
   videoSrc: string | null
+}
+
+export interface ReportPayload {
+  filename: string
+  generated_at: string
+  video_info: {
+    filename: string
+    duration_label: string
+    upload_time: string
+  }
+  summary: string
+  keywords: string[]
+  speakers: Array<{ name: string; percentage: number }>
+  emotions: Array<{ name: string; value: number; color?: string }>
+  events: Array<{
+    window_id: number
+    start: number
+    end: number
+    start_label: string
+    end_label: string
+    title: string
+    summary: string
+    event_type: string
+  }>
+  keyframes: Array<{
+    id: number
+    timestamp: number
+    timestamp_label: string
+    thumbnail: string
+    visual_caption?: string
+  }>
+  transcripts: Array<{
+    id: number
+    timestamp: number
+    timestamp_label: string
+    speaker: string
+    emotion: string
+    text: string
+  }>
+  options: {
+    include_transcripts: boolean
+  }
 }

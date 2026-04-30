@@ -60,6 +60,12 @@ function delay(ms: number): Promise<void> {
   })
 }
 
+function formatTimestamp(seconds: number): string {
+  const mins = Math.floor(seconds / 60)
+  const secs = Math.floor(seconds % 60)
+  return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`
+}
+
 export default function UploadPage() {
   const navigate = useNavigate()
   const [isDragging, setIsDragging] = useState(false)
@@ -73,6 +79,8 @@ export default function UploadPage() {
   const isMountedRef = useRef(true)
 
   useEffect(() => {
+    isMountedRef.current = true
+
     return () => {
       isMountedRef.current = false
       if (videoSrcRef.current) {
@@ -105,7 +113,7 @@ export default function UploadPage() {
     if (selectedFile) setFile(selectedFile)
   }, [])
 
-  const buildSessionData = useCallback((data: UploadResponse): AnalysisSessionData => {
+  const buildSessionData = useCallback((data: UploadResponse, task: TaskStatusResponse): AnalysisSessionData => {
     let summaryText = data.summary
     if (!summaryText && data.text?.trim()) {
       summaryText = data.text.trim().slice(0, 1200)
@@ -150,6 +158,14 @@ export default function UploadPage() {
 
     return {
       taskId: data.task_id?.trim() || "local-task",
+      videoInfo: {
+        filename: task.filename || "upload.mp4",
+        durationSeconds: data.video_duration ?? 0,
+        durationLabel: formatTimestamp(data.video_duration ?? 0),
+        uploadTime: task.created_at
+          ? new Date(task.created_at).toLocaleString()
+          : new Date().toLocaleString(),
+      },
       summary: summaryText,
       keywords,
       transcripts,
@@ -164,7 +180,7 @@ export default function UploadPage() {
       throw new Error("Task finished without analysis result.")
     }
 
-    const sessionData = buildSessionData(data)
+    const sessionData = buildSessionData(data, task)
     saveAnalysisSession(sessionData)
 
     const navState: AnalysisNavigationState = {

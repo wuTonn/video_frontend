@@ -285,10 +285,12 @@ export default function AnalysisPage() {
                   Preview Report
                 </Button>
               </Link>
-              <Button className="gap-2">
-                <Download className="h-4 w-4" />
-                Generate PDF Report
-              </Button>
+              <Link to="/report">
+                <Button className="gap-2">
+                  <Download className="h-4 w-4" />
+                  Prepare PDF Report
+                </Button>
+              </Link>
             </div>
           </div>
         </div>

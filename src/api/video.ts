@@ -1,5 +1,5 @@
 import axios from "axios";
-import type { TaskStatusResponse } from "../types/video";
+import type { ReportPayload, TaskStatusResponse } from "../types/video";
 
 const api = axios.create({
   baseURL: "http://127.0.0.1:8000",
@@ -16,4 +16,11 @@ export const uploadVideo = async (file: File): Promise<TaskStatusResponse> => {
 export const getVideoTask = async (taskId: string): Promise<TaskStatusResponse> => {
   const response = await api.get<TaskStatusResponse>(`/video/task/${taskId}`);
   return response.data;
+};
+
+export const downloadReportPdf = async (payload: ReportPayload): Promise<Blob> => {
+  const response = await api.post("/video/report/pdf", payload, {
+    responseType: "blob",
+  });
+  return response.data as Blob;
 };
