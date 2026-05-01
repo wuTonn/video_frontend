@@ -25,6 +25,10 @@ export function AnalysisCards({
   emotions,
   speakers,
 }: AnalysisCardsProps) {
+  const hasKeywords = keywords.length > 0
+  const hasEmotions = emotions.length > 0
+  const hasSpeakers = speakers.length > 0
+
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-2">
       {/* Video Summary */}
@@ -51,16 +55,20 @@ export function AnalysisCards({
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-wrap gap-1.5">
-            {keywords.map((keyword) => (
-              <span
-                key={keyword}
-                className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary"
-              >
-                {keyword}
-              </span>
-            ))}
-          </div>
+          {hasKeywords ? (
+            <div className="flex flex-wrap gap-1.5">
+              {keywords.map((keyword) => (
+                <span
+                  key={keyword}
+                  className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary"
+                >
+                  {keyword}
+                </span>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">No keywords available.</p>
+          )}
         </CardContent>
       </Card>
 
@@ -73,7 +81,8 @@ export function AnalysisCards({
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center gap-4">
+          {hasEmotions ? (
+            <div className="flex items-center gap-4">
             <div className="h-24 w-24 flex-shrink-0">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
@@ -118,6 +127,9 @@ export function AnalysisCards({
               ))}
             </div>
           </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">No emotion data available.</p>
+          )}
         </CardContent>
       </Card>
 
@@ -130,7 +142,8 @@ export function AnalysisCards({
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="h-24">
+          {hasSpeakers ? (
+            <div className="h-24">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={speakers} layout="vertical">
                 <XAxis type="number" hide />
@@ -163,6 +176,9 @@ export function AnalysisCards({
               </BarChart>
             </ResponsiveContainer>
           </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">No speaker data available.</p>
+          )}
         </CardContent>
       </Card>
     </div>

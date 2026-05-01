@@ -6,7 +6,7 @@ export function saveAnalysisSession(data: AnalysisSessionData): void {
   try {
     sessionStorage.setItem(ANALYSIS_SESSION_KEY, JSON.stringify(data))
   } catch {
-    // 存储失败时仍可通过路由 state 进入分析页
+    // Route state still lets the user open the analysis page when sessionStorage fails.
   }
 }
 

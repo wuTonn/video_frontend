@@ -1,15 +1,11 @@
-
-import { useRef, useState, useEffect, useCallback } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
-import { Play, Pause, Volume2, VolumeX, Maximize2 } from "lucide-react"
-
-const DEFAULT_VIDEO_SRC = "/sample-video.mp4"
+import { Maximize2, Pause, Play, Volume2, VolumeX } from "lucide-react"
 
 interface VideoPlayerProps {
   currentTime: number
   onTimeUpdate: (time: number) => void
-  /** 上传后的本地预览（blob URL）；不传则使用演示用 `/sample-video.mp4` */
   src?: string | null
 }
 
@@ -31,8 +27,8 @@ export function VideoPlayer({
   const [isMuted, setIsMuted] = useState(false)
   const [internalTime, setInternalTime] = useState(0)
 
-  const videoSrc = src && src.length > 0 ? src : DEFAULT_VIDEO_SRC
-  const showDemoOverlay = videoSrc === DEFAULT_VIDEO_SRC
+  const videoSrc = src && src.length > 0 ? src : ""
+  const hasVideo = videoSrc.length > 0
 
   useEffect(() => {
     setInternalTime(0)
@@ -46,7 +42,6 @@ export function VideoPlayer({
     }
   }, [videoSrc])
 
-  // Sync external currentTime to video
   useEffect(() => {
     if (videoRef.current && Math.abs(videoRef.current.currentTime - currentTime) > 1) {
       videoRef.current.currentTime = currentTime
@@ -64,29 +59,29 @@ export function VideoPlayer({
   const handleLoadedMetadata = useCallback(() => {
     if (videoRef.current) {
       const d = videoRef.current.duration
-      setDuration(Number.isFinite(d) && d > 0 ? d : 300)
+      setDuration(Number.isFinite(d) && d > 0 ? d : 0)
     }
   }, [])
 
   const togglePlay = useCallback(() => {
-    if (videoRef.current) {
-      if (isPlaying) {
-        videoRef.current.pause()
-      } else {
-        videoRef.current.play()
-      }
-      setIsPlaying(!isPlaying)
+    if (!videoRef.current || !hasVideo) return
+
+    if (isPlaying) {
+      videoRef.current.pause()
+    } else {
+      videoRef.current.play()
     }
-  }, [isPlaying])
+    setIsPlaying(!isPlaying)
+  }, [hasVideo, isPlaying])
 
   const handleSeek = useCallback((value: number[]) => {
     const newTime = value[0]
-    if (videoRef.current) {
+    if (videoRef.current && hasVideo) {
       videoRef.current.currentTime = newTime
     }
     setInternalTime(newTime)
     onTimeUpdate(newTime)
-  }, [onTimeUpdate])
+  }, [hasVideo, onTimeUpdate])
 
   const handleVolumeChange = useCallback((value: number[]) => {
     const newVolume = value[0]
@@ -105,68 +100,69 @@ export function VideoPlayer({
   }, [isMuted])
 
   const handleFullscreen = useCallback(() => {
-    if (videoRef.current) {
-      if (document.fullscreenElement) {
-        document.exitFullscreen()
-      } else {
-        videoRef.current.requestFullscreen()
-      }
+    if (!videoRef.current || !hasVideo) return
+
+    if (document.fullscreenElement) {
+      document.exitFullscreen()
+    } else {
+      videoRef.current.requestFullscreen()
     }
-  }, [])
+  }, [hasVideo])
 
   return (
     <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
       <div className="relative aspect-video bg-muted">
-        <video
-          key={videoSrc}
-          ref={videoRef}
-          className="h-full w-full object-contain"
-          onTimeUpdate={handleTimeUpdate}
-          onLoadedMetadata={handleLoadedMetadata}
-          onPlay={() => setIsPlaying(true)}
-          onPause={() => setIsPlaying(false)}
-        >
-          <source src={videoSrc} />
-        </video>
-
-        {showDemoOverlay && (
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-foreground/5">
+        {hasVideo ? (
+          <video
+            key={videoSrc}
+            ref={videoRef}
+            className="h-full w-full object-contain"
+            onTimeUpdate={handleTimeUpdate}
+            onLoadedMetadata={handleLoadedMetadata}
+            onPlay={() => setIsPlaying(true)}
+            onPause={() => setIsPlaying(false)}
+          >
+            <source src={videoSrc} />
+          </video>
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center bg-foreground/5">
             <div className="text-center">
               <div className="mx-auto mb-2 flex h-16 w-16 items-center justify-center rounded-full bg-primary/90 text-primary-foreground">
-                <Play className="h-8 w-8 ml-1" />
+                <Play className="ml-1 h-8 w-8" />
               </div>
-              <p className="text-sm text-muted-foreground">Demo Video Player</p>
+              <p className="text-sm text-muted-foreground">
+                Video preview is unavailable after page reload.
+              </p>
             </div>
           </div>
         )}
       </div>
 
-      {/* Controls */}
       <div className="space-y-3 p-4">
-        {/* Progress bar */}
         <div className="flex items-center gap-3">
-          <span className="text-xs font-medium text-muted-foreground w-12">
+          <span className="w-12 text-xs font-medium text-muted-foreground">
             {formatTime(internalTime)}
           </span>
           <Slider
             value={[internalTime]}
-            max={duration}
+            max={duration || 1}
             step={1}
             onValueChange={handleSeek}
+            disabled={!hasVideo}
             className="flex-1"
           />
-          <span className="text-xs font-medium text-muted-foreground w-12 text-right">
+          <span className="w-12 text-right text-xs font-medium text-muted-foreground">
             {formatTime(duration)}
           </span>
         </div>
 
-        {/* Control buttons */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Button
               variant="ghost"
               size="icon"
               onClick={togglePlay}
+              disabled={!hasVideo}
               className="h-9 w-9"
             >
               {isPlaying ? (
@@ -181,6 +177,7 @@ export function VideoPlayer({
                 variant="ghost"
                 size="icon"
                 onClick={toggleMute}
+                disabled={!hasVideo}
                 className="h-9 w-9"
               >
                 {isMuted ? (
@@ -194,6 +191,7 @@ export function VideoPlayer({
                 max={1}
                 step={0.1}
                 onValueChange={handleVolumeChange}
+                disabled={!hasVideo}
                 className="w-24"
               />
             </div>
@@ -203,6 +201,7 @@ export function VideoPlayer({
             variant="ghost"
             size="icon"
             onClick={handleFullscreen}
+            disabled={!hasVideo}
             className="h-9 w-9"
           >
             <Maximize2 className="h-5 w-5" />

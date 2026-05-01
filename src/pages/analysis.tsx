@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react"
+import { useCallback, useMemo, useState } from "react"
 import { Link, useLocation } from "react-router-dom"
 import { Navbar } from "@/components/navbar"
 import { VideoPlayer } from "@/components/video-player"
@@ -8,100 +8,18 @@ import { TranscriptPanel } from "@/components/transcript-panel"
 import { KeyframePanel } from "@/components/keyframe-panel"
 import { EventTimelinePanel } from "@/components/event-timeline-panel"
 import { Button } from "@/components/ui/button"
-import { FileText, Download } from "lucide-react"
+import { Card, CardContent } from "@/components/ui/card"
+import { Download, Upload } from "lucide-react"
 import { loadAnalysisSession } from "@/lib/analysis-session"
 import type {
   AnalysisNavigationState,
   AnalysisSessionData,
-  EventItem,
-  Keyframe,
   TranscriptItem,
 } from "@/types/video"
 
-// Mock data
-const mockSummary = "This video discusses the transformative impact of artificial intelligence on modern industries. The speakers explore various applications of AI in healthcare, education, and technology sectors, highlighting both opportunities and challenges. Key themes include machine learning advancements, ethical considerations, and future predictions for AI development."
-
-const mockKeywords = ["AI", "Technology", "Machine Learning", "Healthcare", "Education", "Innovation", "Future", "Ethics"]
-
-const mockEmotions = [
-  { name: "Happy", value: 35, color: "oklch(0.7 0.15 160)" },
-  { name: "Neutral", value: 45, color: "oklch(0.65 0.05 250)" },
-  { name: "Sad", value: 10, color: "oklch(0.55 0.22 255)" },
-  { name: "Surprised", value: 10, color: "oklch(0.75 0.18 80)" },
-]
-
-const mockSpeakers = [
-  { name: "Speaker A", percentage: 55 },
-  { name: "Speaker B", percentage: 35 },
-  { name: "Speaker C", percentage: 10 },
-]
-
-const mockTranscripts = [
-  { id: 1, timestamp: 0, speaker: "Speaker A", emotion: "happy", text: "Welcome everyone to today's presentation on artificial intelligence." },
-  { id: 2, timestamp: 15, speaker: "Speaker B", emotion: "neutral", text: "Today we will discuss how AI is transforming various industries around the world." },
-  { id: 3, timestamp: 35, speaker: "Speaker A", emotion: "happy", text: "Let's start with healthcare. AI is revolutionizing medical diagnosis and treatment." },
-  { id: 4, timestamp: 55, speaker: "Speaker B", emotion: "neutral", text: "Machine learning algorithms can now detect diseases earlier than traditional methods." },
-  { id: 5, timestamp: 75, speaker: "Speaker C", emotion: "surprised", text: "The accuracy rates are truly remarkable, often exceeding human capabilities." },
-  { id: 6, timestamp: 95, speaker: "Speaker A", emotion: "neutral", text: "Moving on to education, AI is personalizing learning experiences for students." },
-  { id: 7, timestamp: 115, speaker: "Speaker B", emotion: "happy", text: "Adaptive learning platforms are making education more accessible worldwide." },
-  { id: 8, timestamp: 135, speaker: "Speaker A", emotion: "neutral", text: "However, we must also consider the ethical implications of AI development." },
-  { id: 9, timestamp: 155, speaker: "Speaker C", emotion: "sad", text: "There are concerns about job displacement and privacy issues." },
-  { id: 10, timestamp: 175, speaker: "Speaker B", emotion: "neutral", text: "It's important to develop AI responsibly and with proper governance." },
-  { id: 11, timestamp: 195, speaker: "Speaker A", emotion: "happy", text: "Looking ahead, the future of AI is incredibly promising." },
-  { id: 12, timestamp: 215, speaker: "Speaker B", emotion: "happy", text: "We expect to see major breakthroughs in natural language processing and robotics." },
-  { id: 13, timestamp: 235, speaker: "Speaker C", emotion: "neutral", text: "The key is to balance innovation with responsibility." },
-  { id: 14, timestamp: 255, speaker: "Speaker A", emotion: "happy", text: "Thank you all for joining us today. Let's embrace the AI revolution together." },
-]
-
-const mockKeyframes = [
-  { id: 1, timestamp: 10, thumbnail: "/keyframe-1.jpg" },
-  { id: 2, timestamp: 45, thumbnail: "/keyframe-2.jpg" },
-  { id: 3, timestamp: 92, thumbnail: "/keyframe-3.jpg" },
-  { id: 4, timestamp: 130, thumbnail: "/keyframe-4.jpg" },
-  { id: 5, timestamp: 168, thumbnail: "/keyframe-5.jpg" },
-  { id: 6, timestamp: 210, thumbnail: "/keyframe-6.jpg" },
-  { id: 7, timestamp: 245, thumbnail: "/keyframe-7.jpg" },
-  { id: 8, timestamp: 280, thumbnail: "/keyframe-8.jpg" },
-]
-
-const mockEvents: EventItem[] = [
-  {
-    window_id: 1,
-    start: 0,
-    end: 60,
-    title: "AI topic introduction",
-    summary: "The speakers introduce the topic of artificial intelligence and outline the main themes of the video.",
-    event_type: "introduction",
-  },
-  {
-    window_id: 2,
-    start: 60,
-    end: 150,
-    title: "Industry applications discussion",
-    summary: "The discussion shifts to how AI is applied in healthcare and education, with multiple speakers expanding on examples.",
-    event_type: "discussion",
-  },
-  {
-    window_id: 3,
-    start: 150,
-    end: 280,
-    title: "Ethics and conclusion",
-    summary: "The video closes with ethical concerns, governance issues, and a forward-looking conclusion about AI development.",
-    event_type: "conclusion",
-  },
-]
-
-const EMPTY_KEYFRAME_FALLBACK: Keyframe[] = []
-
-const EMPTY_TRANSCRIPT_FALLBACK: TranscriptItem[] = [
-  {
-    id: 1,
-    timestamp: 0,
-    speaker: "—",
-    emotion: "neutral",
-    text: "（暂无字幕分段）",
-  },
-]
+const EMPTY_SUMMARY = "No summary available."
+const EMPTY_KEYWORDS: string[] = []
+const EMPTY_TRANSCRIPTS: TranscriptItem[] = []
 
 const EMOTION_COLOR: Record<string, string> = {
   happy: "oklch(0.7 0.15 160)",
@@ -109,7 +27,9 @@ const EMOTION_COLOR: Record<string, string> = {
   sad: "oklch(0.55 0.22 255)",
   surprised: "oklch(0.75 0.18 80)",
   angry: "oklch(0.62 0.22 25)",
+  fear: "oklch(0.6 0.12 320)",
   fearful: "oklch(0.6 0.12 320)",
+  disgust: "oklch(0.58 0.17 130)",
   disgusted: "oklch(0.58 0.17 130)",
 }
 
@@ -119,47 +39,48 @@ function toTitleCase(label: string): string {
 }
 
 function normalizeEmotion(raw: string | undefined | null): string {
-  const v = String(raw ?? "").trim().toLowerCase()
-  return v || "neutral"
+  const value = String(raw ?? "").trim().toLowerCase()
+  return value || "neutral"
 }
 
 function normalizeSpeaker(raw: string | undefined | null): string {
-  const v = String(raw ?? "").trim()
-  return v || "Unknown"
+  const value = String(raw ?? "").trim()
+  return value || "Unknown"
 }
 
 function toPercentDistribution(
   counts: Map<string, number>,
 ): Array<{ key: string; percent: number }> {
-  const entries = Array.from(counts.entries()).filter(([, c]) => c > 0)
-  const total = entries.reduce((sum, [, c]) => sum + c, 0)
+  const entries = Array.from(counts.entries()).filter(([, count]) => count > 0)
+  const total = entries.reduce((sum, [, count]) => sum + count, 0)
   if (total <= 0) return []
 
-  const withRounded = entries.map(([key, c]) => ({
+  const rounded = entries.map(([key, count]) => ({
     key,
-    raw: (c / total) * 100,
-    percent: Math.round((c / total) * 100),
+    raw: (count / total) * 100,
+    percent: Math.round((count / total) * 100),
   }))
 
-  // 让总和严格为 100（避免四舍五入误差影响图表观感）
-  const sumRounded = withRounded.reduce((sum, x) => sum + x.percent, 0)
-  const diff = 100 - sumRounded
-  if (diff !== 0) {
-    let bestIdx = 0
+  const diff = 100 - rounded.reduce((sum, item) => sum + item.percent, 0)
+  if (diff !== 0 && rounded.length > 0) {
+    let bestIndex = 0
     let bestScore = -Infinity
-    for (let i = 0; i < withRounded.length; i++) {
-      const x = withRounded[i]
-      const score = diff > 0 ? x.raw - x.percent : x.percent - x.raw
+    for (let index = 0; index < rounded.length; index += 1) {
+      const item = rounded[index]
+      const score = diff > 0 ? item.raw - item.percent : item.percent - item.raw
       if (score > bestScore) {
         bestScore = score
-        bestIdx = i
+        bestIndex = index
       }
     }
-    withRounded[bestIdx] = { ...withRounded[bestIdx], percent: withRounded[bestIdx].percent + diff }
+    rounded[bestIndex] = {
+      ...rounded[bestIndex],
+      percent: rounded[bestIndex].percent + diff,
+    }
   }
 
-  return withRounded
-    .map((x) => ({ key: x.key, percent: x.percent }))
+  return rounded
+    .map((item) => ({ key: item.key, percent: item.percent }))
     .sort((a, b) => b.percent - a.percent)
 }
 
@@ -182,76 +103,38 @@ export default function AnalysisPage() {
     [location.state, location.key],
   )
 
-  const hasApi = Boolean(payload)
-
-  const summary = useMemo(() => {
-    if (!hasApi || !payload) return mockSummary
-    const s = payload.summary.trim()
-    return s || "（摘要为空）"
-  }, [hasApi, payload])
-
-  const keywords = useMemo(() => {
-    if (!hasApi || !payload) return mockKeywords
-    if (payload.keywords.length > 0) return payload.keywords
-    return ["（暂无关键词）"]
-  }, [hasApi, payload])
-
-  const transcripts = useMemo(() => {
-    if (!hasApi || !payload) return mockTranscripts
-    if (payload.transcripts.length > 0) return payload.transcripts
-    return EMPTY_TRANSCRIPT_FALLBACK
-  }, [hasApi, payload])
-
-  const keyframes = useMemo(() => {
-    if (!hasApi || !payload) return mockKeyframes
-    if (payload.keyframes && payload.keyframes.length > 0) return payload.keyframes
-    return EMPTY_KEYFRAME_FALLBACK
-  }, [hasApi, payload])
-
-  const events = useMemo(() => {
-    if (!hasApi || !payload) return mockEvents
-    if (payload.events && payload.events.length > 0) return payload.events
-    return []
-  }, [hasApi, payload])
+  const summary = payload?.summary.trim() || EMPTY_SUMMARY
+  const keywords = payload?.keywords.length ? payload.keywords : EMPTY_KEYWORDS
+  const transcripts = payload?.transcripts.length ? payload.transcripts : EMPTY_TRANSCRIPTS
+  const keyframes = payload?.keyframes ?? []
+  const events = payload?.events ?? []
 
   const emotions = useMemo(() => {
-    if (!hasApi || !payload) return mockEmotions
-    if (!payload.transcripts || payload.transcripts.length === 0) return mockEmotions
-
     const counts = new Map<string, number>()
-    for (const item of payload.transcripts) {
+    for (const item of transcripts) {
       const key = normalizeEmotion(item.emotion)
       counts.set(key, (counts.get(key) ?? 0) + 1)
     }
 
-    const distribution = toPercentDistribution(counts)
-    if (distribution.length === 0) return mockEmotions
-
-    return distribution.map(({ key, percent }) => ({
+    return toPercentDistribution(counts).map(({ key, percent }) => ({
       name: toTitleCase(key),
       value: percent,
       color: EMOTION_COLOR[key] ?? "oklch(0.72 0.06 260)",
     }))
-  }, [hasApi, payload])
+  }, [transcripts])
 
   const speakers = useMemo(() => {
-    if (!hasApi || !payload) return mockSpeakers
-    if (!payload.transcripts || payload.transcripts.length === 0) return mockSpeakers
-
     const counts = new Map<string, number>()
-    for (const item of payload.transcripts) {
+    for (const item of transcripts) {
       const key = normalizeSpeaker(item.speaker)
       counts.set(key, (counts.get(key) ?? 0) + 1)
     }
 
-    const distribution = toPercentDistribution(counts)
-    if (distribution.length === 0) return mockSpeakers
-
-    return distribution.map(({ key, percent }) => ({
+    return toPercentDistribution(counts).map(({ key, percent }) => ({
       name: key,
       percentage: percent,
     }))
-  }, [hasApi, payload])
+  }, [transcripts])
 
   const [currentTime, setCurrentTime] = useState(0)
 
@@ -263,41 +146,50 @@ export default function AnalysisPage() {
     setCurrentTime(time)
   }, [])
 
+  if (!payload) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <main className="container mx-auto px-4 py-10">
+          <Card className="border-border">
+            <CardContent className="flex flex-col items-center gap-4 py-12 text-center">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+                <Upload className="h-6 w-6 text-muted-foreground" />
+              </div>
+              <div>
+                <h1 className="text-xl font-semibold text-foreground">No analysis result loaded</h1>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Upload and analyze a video to view transcript, events, keyframes, and report data.
+                </p>
+              </div>
+              <Link to="/upload">
+                <Button>Upload Video</Button>
+              </Link>
+            </CardContent>
+          </Card>
+        </main>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
 
       <main className="container mx-auto px-4 py-6">
+        <div className="mb-6 grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto]">
+          <SearchModule transcripts={transcripts} onSeek={handleSeek} />
 
-
-        <div className="mb-6 grid gap-6 lg:grid-cols-4">
-          {/* Search Module */}
-          <div className="col-span-3">
-            <SearchModule transcripts={transcripts} onSeek={handleSeek} />
-          </div>
-
-          {/* Report Module */}
-          <div className="col-span-1">
-            <div className="flex gap-4">
-              <Link to="/report">
-                <Button variant="outline" className="gap-2">
-                  <FileText className="h-4 w-4" />
-                  Preview Report
-                </Button>
-              </Link>
-              <Link to="/report">
-                <Button className="gap-2">
-                  <Download className="h-4 w-4" />
-                  Prepare PDF Report
-                </Button>
-              </Link>
-            </div>
-          </div>
+          <Link to="/report" state={{ videoSrc }}>
+            <Button className="gap-2">
+              <Download className="h-4 w-4" />
+              Prepare PDF Report
+            </Button>
+          </Link>
         </div>
 
-        {/* Video Player Section AndTranscript*/}
         <div className="mb-6 grid gap-6 lg:grid-cols-3">
-          <div className="col-span-2">
+          <div className="lg:col-span-2">
             <VideoPlayer
               currentTime={currentTime}
               onTimeUpdate={handleTimeUpdate}
@@ -312,7 +204,6 @@ export default function AnalysisPage() {
           />
         </div>
 
-        {/* Analysis Cards */}
         <div className="mb-6">
           <AnalysisCards
             summary={summary}
@@ -322,8 +213,6 @@ export default function AnalysisPage() {
           />
         </div>
 
-
-
         <div className="mb-6">
           <EventTimelinePanel
             events={events}
@@ -332,7 +221,6 @@ export default function AnalysisPage() {
           />
         </div>
 
-        {/* Keyframes */}
         <div className="mb-6">
           <KeyframePanel
             keyframes={keyframes}
@@ -340,7 +228,7 @@ export default function AnalysisPage() {
             onSeek={handleSeek}
           />
         </div>
-      </main >
-    </div >
+      </main>
+    </div>
   )
 }
