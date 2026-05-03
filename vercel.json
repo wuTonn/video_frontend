@@ -1,0 +1,12 @@
+{
+  "rewrites": [
+    {
+      "source": "/video/:path*",
+      "destination": "http://47.121.200.57/video/:path*"
+    },
+    {
+      "source": "/media/:path*",
+      "destination": "http://47.121.200.57/media/:path*"
+    }
+  ]
+}

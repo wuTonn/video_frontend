@@ -1,8 +1,11 @@
 import axios from "axios";
 import type { ReportPayload, TaskStatusResponse } from "../types/video";
 
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.PROD ? "" : "http://127.0.0.1:8000");
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000",
+  baseURL: API_BASE_URL,
 });
 
 function toApiError(error: unknown, fallback: string): Error {
