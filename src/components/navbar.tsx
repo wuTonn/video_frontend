@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom"
 import { Button } from "@/components/ui/button"
-import { Video, Upload } from "lucide-react"
+import { History, Video, Upload } from "lucide-react"
 
 export function Navbar() {
   return (
@@ -12,12 +12,20 @@ export function Navbar() {
           </div>
           <span className="text-lg font-semibold text-foreground">Multimodal AI Video Analyzer</span>
         </Link>
-        <Link to="/upload">
-          <Button className="gap-2">
-            <Upload className="h-4 w-4" />
-            Upload Video
-          </Button>
-        </Link>
+        <nav className="flex items-center gap-2">
+          <Link to="/history">
+            <Button variant="ghost" className="gap-2">
+              <History className="h-4 w-4" />
+              History
+            </Button>
+          </Link>
+          <Link to="/upload">
+            <Button className="gap-2">
+              <Upload className="h-4 w-4" />
+              Upload Video
+            </Button>
+          </Link>
+        </nav>
       </div>
     </header>
   )

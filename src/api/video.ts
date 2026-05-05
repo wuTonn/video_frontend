@@ -1,5 +1,5 @@
 import axios from "axios";
-import type { ReportPayload, TaskStatusResponse } from "../types/video";
+import type { ReportPayload, TaskHistoryItem, TaskStatusResponse } from "../types/video";
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.PROD ? "" : "http://127.0.0.1:8000");
@@ -51,6 +51,17 @@ export const getVideoTask = async (taskId: string): Promise<TaskStatusResponse> 
     return response.data;
   } catch (error) {
     throw toApiError(error, "Unable to load task status.");
+  }
+};
+
+export const getVideoTasks = async (limit = 50): Promise<TaskHistoryItem[]> => {
+  try {
+    const response = await api.get<TaskHistoryItem[]>("/video/tasks", {
+      params: { limit },
+    });
+    return response.data;
+  } catch (error) {
+    throw toApiError(error, "Unable to load task history.");
   }
 };
 

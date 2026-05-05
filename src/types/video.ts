@@ -57,6 +57,8 @@ export interface TaskStatusResponse {
   updated_at?: string
 }
 
+export type TaskHistoryItem = Omit<TaskStatusResponse, "result">
+
 export interface TranscriptItem {
   id: number
   timestamp: number
