@@ -41,12 +41,24 @@ export function TranscriptPanel({ transcripts, currentTime, onSeek }: Transcript
   })
 
   useEffect(() => {
-    if (activeRef.current) {
-      activeRef.current.scrollIntoView({
-        behavior: "smooth",
-        block: "center",
-      })
-    }
+    if (currentIndex < 0) return
+
+    const scrollRoot = scrollRef.current
+    const activeEl = activeRef.current
+    const viewport = scrollRoot?.querySelector<HTMLElement>('[data-slot="scroll-area-viewport"]')
+
+    if (!activeEl || !viewport) return
+
+    const activeRect = activeEl.getBoundingClientRect()
+    const viewportRect = viewport.getBoundingClientRect()
+    const activeTop = activeRect.top - viewportRect.top + viewport.scrollTop
+    const targetTop = activeTop - viewport.clientHeight / 2 + activeEl.offsetHeight / 2
+    const maxTop = Math.max(0, viewport.scrollHeight - viewport.clientHeight)
+
+    viewport.scrollTo({
+      top: Math.max(0, Math.min(targetTop, maxTop)),
+      behavior: "smooth",
+    })
   }, [currentIndex])
 
   return (

@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Separator } from "@/components/ui/separator"
-import { downloadReportPdf } from "@/api/video"
+import { buildMediaUrl, downloadReportPdf } from "@/api/video"
 import { loadAnalysisSession } from "@/lib/analysis-session"
 import type {
   AnalysisNavigationState,
@@ -55,9 +55,10 @@ function resolveReportState(state: unknown): {
   videoSrc: string | null
 } {
   const nav = state as (AnalysisNavigationState & ReportLocationState) | undefined
+  const payload = loadAnalysisSession()
   return {
-    payload: loadAnalysisSession(),
-    videoSrc: nav?.videoSrc ?? null,
+    payload,
+    videoSrc: nav?.videoSrc ?? payload?.videoSrc ?? null,
   }
 }
 
@@ -93,10 +94,17 @@ function toSpeakerDistribution(transcripts: TranscriptItem[], nameMap: Record<st
 
 export default function ReportPage() {
   const location = useLocation()
-  const { payload } = useMemo(() => resolveReportState(location.state), [location.state])
+  const { payload, videoSrc } = useMemo(() => resolveReportState(location.state), [location.state])
 
   const transcripts = payload?.transcripts ?? []
-  const keyframes = payload?.keyframes ?? []
+  const keyframes = useMemo(
+    () =>
+      (payload?.keyframes ?? []).map((frame) => ({
+        ...frame,
+        thumbnail: frame.thumbnail ? buildMediaUrl(frame.thumbnail) : "",
+      })),
+    [payload?.keyframes],
+  )
   const events = payload?.events ?? []
   const summary = payload?.summary ?? ""
   const keywords = payload?.keywords ?? []
@@ -218,7 +226,7 @@ export default function ReportPage() {
       <main className="container mx-auto px-4 py-6">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <Link to="/analysis">
+            <Link to="/analysis" state={{ videoSrc }}>
               <Button variant="ghost" size="icon" className="h-9 w-9">
                 <ArrowLeft className="h-5 w-5" />
               </Button>

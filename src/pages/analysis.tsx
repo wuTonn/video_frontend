@@ -10,6 +10,7 @@ import { EventTimelinePanel } from "@/components/event-timeline-panel"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Download, Upload } from "lucide-react"
+import { buildMediaUrl } from "@/api/video"
 import { loadAnalysisSession } from "@/lib/analysis-session"
 import type {
   AnalysisNavigationState,
@@ -90,10 +91,10 @@ function resolveAnalysisRouteState(state: unknown): {
 } {
   const nav = state as AnalysisNavigationState | undefined
   if (nav?.taskId) {
-    const { videoSrc, ...rest } = nav
-    return { payload: rest, videoSrc: videoSrc ?? null }
+    return { payload: nav, videoSrc: nav.videoSrc ?? null }
   }
-  return { payload: loadAnalysisSession(), videoSrc: null }
+  const saved = loadAnalysisSession()
+  return { payload: saved, videoSrc: nav?.videoSrc ?? saved?.videoSrc ?? null }
 }
 
 export default function AnalysisPage() {
@@ -106,7 +107,14 @@ export default function AnalysisPage() {
   const summary = payload?.summary.trim() || EMPTY_SUMMARY
   const keywords = payload?.keywords.length ? payload.keywords : EMPTY_KEYWORDS
   const transcripts = payload?.transcripts.length ? payload.transcripts : EMPTY_TRANSCRIPTS
-  const keyframes = payload?.keyframes ?? []
+  const keyframes = useMemo(
+    () =>
+      (payload?.keyframes ?? []).map((frame) => ({
+        ...frame,
+        thumbnail: frame.thumbnail ? buildMediaUrl(frame.thumbnail) : "",
+      })),
+    [payload?.keyframes],
+  )
   const events = payload?.events ?? []
 
   const emotions = useMemo(() => {

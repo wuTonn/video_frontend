@@ -8,6 +8,21 @@ const api = axios.create({
   baseURL: API_BASE_URL,
 });
 
+export function buildMediaUrl(path: string): string {
+  const value = path.trim()
+  if (!value) return ""
+  if (/^(https?:|data:|blob:)/i.test(value)) return value
+
+  const baseUrl = API_BASE_URL.replace(/\/$/, "")
+  const mediaPath = value.startsWith("/") ? value : `/${value}`
+  return `${baseUrl}${mediaPath}`
+}
+
+export function buildUploadedVideoUrl(taskId: string, filename: string): string {
+  const mediaFilename = encodeURIComponent(`${taskId}_${filename}`)
+  return buildMediaUrl(`/media/uploads/${mediaFilename}`)
+}
+
 function toApiError(error: unknown, fallback: string): Error {
   if (axios.isAxiosError(error)) {
     const detail = error.response?.data?.detail

@@ -5,7 +5,7 @@ import { Footer } from "@/components/footer"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { getVideoTask, uploadVideo } from "@/api/video"
+import { buildMediaUrl, buildUploadedVideoUrl, getVideoTask, uploadVideo } from "@/api/video"
 import { saveAnalysisSession } from "@/lib/analysis-session"
 import { segmentsToTranscripts } from "@/lib/upload-response"
 import type {
@@ -75,7 +75,6 @@ export default function UploadPage() {
   const [statusMessage, setStatusMessage] = useState("")
   const [error, setError] = useState<string | null>(null)
 
-  const videoSrcRef = useRef<string | null>(null)
   const isMountedRef = useRef(true)
 
   useEffect(() => {
@@ -83,9 +82,6 @@ export default function UploadPage() {
 
     return () => {
       isMountedRef.current = false
-      if (videoSrcRef.current) {
-        URL.revokeObjectURL(videoSrcRef.current)
-      }
     }
   }, [])
 
@@ -143,7 +139,7 @@ export default function UploadPage() {
     const keyframes = (data.keyframes ?? []).map((kf, i) => ({
       id: kf.id ?? i + 1,
       timestamp: kf.timestamp,
-      thumbnail: kf.thumbnail,
+      thumbnail: kf.thumbnail ? buildMediaUrl(kf.thumbnail) : "",
       visual_caption: kf.visual_caption,
     }))
 
@@ -156,8 +152,12 @@ export default function UploadPage() {
       event_type: event.event_type ?? "other",
     }))
 
+    const taskId = data.task_id?.trim() || task.task_id?.trim() || "local-task"
+    const videoSrc = task.filename ? buildUploadedVideoUrl(taskId, task.filename) : null
+
     return {
-      taskId: data.task_id?.trim() || "local-task",
+      taskId,
+      videoSrc,
       videoInfo: {
         filename: task.filename || "upload.mp4",
         durationSeconds: data.video_duration ?? 0,
@@ -185,10 +185,9 @@ export default function UploadPage() {
 
     const navState: AnalysisNavigationState = {
       ...sessionData,
-      videoSrc: videoSrcRef.current,
+      videoSrc: sessionData.videoSrc ?? null,
     }
 
-    videoSrcRef.current = null
     navigate("/analysis", { state: navState })
   }, [buildSessionData, navigate])
 
@@ -224,11 +223,6 @@ export default function UploadPage() {
     setCurrentStep(1)
     setStatusMessage("Uploading video.")
 
-    if (videoSrcRef.current) {
-      URL.revokeObjectURL(videoSrcRef.current)
-    }
-    videoSrcRef.current = URL.createObjectURL(file)
-
     try {
       const task = await uploadVideo(file)
 
@@ -239,11 +233,6 @@ export default function UploadPage() {
 
       await pollTaskUntilDone(task.task_id)
     } catch (e) {
-      if (videoSrcRef.current) {
-        URL.revokeObjectURL(videoSrcRef.current)
-        videoSrcRef.current = null
-      }
-
       const message =
         e != null && typeof e === "object" && "message" in e
           ? String((e as { message: unknown }).message)

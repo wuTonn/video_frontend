@@ -67,6 +67,7 @@ export interface TranscriptItem {
 
 export interface AnalysisSessionData {
   taskId: string
+  videoSrc?: string | null
   videoInfo: VideoInfo
   summary: string
   keywords: string[]
